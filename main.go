@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dorsone/goredis/internal"
 	"fmt"
 	"io"
 	"net"
@@ -23,8 +24,9 @@ func main() {
 	defer conn.Close()
 
 	for {
-		buf := make([]byte, 1024)
-		_, err = conn.Read(buf)
+		resp := internal.NewResp(conn)
+		value, err := resp.Read()
+
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -34,6 +36,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		conn.Write([]byte("+OK\r\n"))
+		fmt.Println(value)
+
+		_, _ = conn.Write([]byte("+OK\r\n"))
 	}
 }

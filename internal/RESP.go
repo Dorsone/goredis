@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	STRING  = '+'
-	ERROR   = '-'
-	INTEGER = ':'
-	BULK    = '$'
-	ARRAY   = '*'
+	STRING  = "+"
+	ERROR   = "-"
+	INTEGER = ":"
+	BULK    = "$"
+	ARRAY   = "*"
+	NULL    = "_"
 )
 
 type Value struct {
@@ -23,12 +24,41 @@ type Value struct {
 	array []Value
 }
 
+func NewValue(bulk string) Value {
+	return Value{
+		typ:   BULK,
+		str:   "",
+		num:   0,
+		bulk:  bulk,
+		array: nil,
+	}
+}
+
 type Resp struct {
 	reader *bufio.Reader
 }
 
 func NewResp(rd io.Reader) *Resp {
 	return &Resp{reader: bufio.NewReader(rd)}
+}
+
+type Writer struct {
+	writer io.Writer
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{writer: w}
+}
+
+func (w *Writer) Write(v Value) error {
+	var bytes = v.Marshal()
+
+	_, err := w.writer.Write(bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Resp) readLine() (line []byte, n int, err error) {
@@ -65,7 +95,7 @@ func (r *Resp) Read() (Value, error) {
 		return Value{}, err
 	}
 
-	switch _type {
+	switch string(_type) {
 	case ARRAY:
 		return r.readArray()
 	case BULK:
@@ -78,7 +108,7 @@ func (r *Resp) Read() (Value, error) {
 
 func (r *Resp) readArray() (Value, error) {
 	v := Value{}
-	v.typ = "array"
+	v.typ = ARRAY
 
 	// read length of array
 	size, _, err := r.readInteger()
@@ -104,7 +134,7 @@ func (r *Resp) readArray() (Value, error) {
 func (r *Resp) readBulk() (Value, error) {
 	v := Value{}
 
-	v.typ = "bulk"
+	v.typ = BULK
 
 	size, _, err := r.readInteger()
 	if err != nil {
@@ -121,4 +151,57 @@ func (r *Resp) readBulk() (Value, error) {
 	_, _, _ = r.readLine()
 
 	return v, nil
+}
+
+func (v *Value) Marshal() []byte {
+	switch v.typ {
+	case ARRAY:
+		return v.marshalArray()
+	case BULK:
+		return v.marshalBulk()
+	case ERROR:
+		return v.marshallError()
+	case NULL:
+		return v.marshallNull()
+	default:
+		return []byte{}
+	}
+}
+
+func (v *Value) marshalArray() []byte {
+	size := len(v.array)
+	var bytes []byte
+	bytes = append(bytes, ARRAY...)
+	bytes = append(bytes, strconv.Itoa(size)...)
+	bytes = append(bytes, '\r', '\n')
+
+	for i := range size {
+		bytes = append(bytes, v.array[i].Marshal()...)
+	}
+
+	return bytes
+}
+
+func (v *Value) marshalBulk() []byte {
+	var bytes []byte
+	bytes = append(bytes, BULK...)
+	bytes = append(bytes, strconv.Itoa(len(v.bulk))...)
+	bytes = append(bytes, '\r', '\n')
+	bytes = append(bytes, v.bulk...)
+	bytes = append(bytes, '\r', '\n')
+
+	return bytes
+}
+
+func (v *Value) marshallError() []byte {
+	var bytes []byte
+	bytes = append(bytes, ERROR...)
+	bytes = append(bytes, v.str...)
+	bytes = append(bytes, '\r', '\n')
+
+	return bytes
+}
+
+func (v *Value) marshallNull() []byte {
+	return []byte("$-1\r\n")
 }

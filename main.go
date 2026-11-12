@@ -3,18 +3,21 @@ package main
 import (
 	"dorsone/goredis/internal"
 	"fmt"
-	"io"
 	"net"
 	"os"
 )
 
 func main() {
+	fmt.Println("Listening on port :6379")
+
+	// Create a new server
 	l, err := net.Listen("tcp", ":6379")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
+	// Listen for connections
 	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println(err)
@@ -26,18 +29,18 @@ func main() {
 	for {
 		resp := internal.NewResp(conn)
 		value, err := resp.Read()
-
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			fmt.Println("error reading from client: ", err.Error())
-			os.Exit(1)
+			fmt.Println(err)
+			return
 		}
 
-		fmt.Println(value)
+		_ = value
 
-		_, _ = conn.Write([]byte("+OK\r\n"))
+		writer := internal.NewWriter(conn)
+		err = writer.Write(internal.NewValue("OK"))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	}
 }

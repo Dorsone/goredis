@@ -4,7 +4,7 @@ import (
 	"dorsone/goredis/internal"
 	"fmt"
 	"net"
-	"os"
+	"strings"
 )
 
 func main() {
@@ -34,13 +34,38 @@ func main() {
 			return
 		}
 
-		_ = value
+		if value.GetType() != internal.ARRAY {
+			fmt.Println("Invalid request, expected array")
+			continue
+		}
+
+		if len(value.GetArray()) == 0 {
+			fmt.Println("Invalid request, expected array length > 0")
+			continue
+		}
+
+		command := strings.ToUpper(value.GetArray()[0].GetBulk())
+		args := value.GetArray()[1:]
+
+		fmt.Println(command, args)
 
 		writer := internal.NewWriter(conn)
-		err = writer.Write(internal.NewValue("OK"))
+
+		handler, ok := internal.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			err = writer.Write(internal.NewValue(""))
+			if err != nil {
+				fmt.Println(err)
+			}
+			continue
+		}
+
+		result := handler(args)
+		fmt.Println(result)
+		err = writer.Write(result)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
 		}
 	}
 }

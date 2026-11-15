@@ -34,6 +34,18 @@ func NewValue(bulk string) Value {
 	}
 }
 
+func (v *Value) GetType() string {
+	return v.typ
+}
+
+func (v *Value) GetArray() []Value {
+	return v.array
+}
+
+func (v *Value) GetBulk() string {
+	return v.bulk
+}
+
 type Resp struct {
 	reader *bufio.Reader
 }
@@ -52,6 +64,8 @@ func NewWriter(w io.Writer) *Writer {
 
 func (w *Writer) Write(v Value) error {
 	var bytes = v.Marshal()
+
+	fmt.Println(bytes)
 
 	_, err := w.writer.Write(bytes)
 	if err != nil {
@@ -154,6 +168,7 @@ func (r *Resp) readBulk() (Value, error) {
 }
 
 func (v *Value) Marshal() []byte {
+	fmt.Println(v.typ)
 	switch v.typ {
 	case ARRAY:
 		return v.marshalArray()
@@ -163,6 +178,8 @@ func (v *Value) Marshal() []byte {
 		return v.marshallError()
 	case NULL:
 		return v.marshallNull()
+	case STRING:
+		return v.marshallString()
 	default:
 		return []byte{}
 	}
@@ -204,4 +221,15 @@ func (v *Value) marshallError() []byte {
 
 func (v *Value) marshallNull() []byte {
 	return []byte("$-1\r\n")
+}
+
+func (v *Value) marshallString() []byte {
+	var bytes []byte
+	bytes = append(bytes, BULK...)
+	bytes = append(bytes, strconv.Itoa(len(v.bulk))...)
+	bytes = append(bytes, '\r', '\n')
+	bytes = append(bytes, v.bulk...)
+	bytes = append(bytes, '\r', '\n')
+
+	return bytes
 }

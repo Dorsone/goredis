@@ -17,6 +17,15 @@ func main() {
 		return
 	}
 
+	aof, err := internal.NewAof("database.aof")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer func(aof *internal.Aof) {
+		_ = aof.Close()
+	}(aof)
+
 	// Listen for connections
 	conn, err := l.Accept()
 	if err != nil {
@@ -25,6 +34,19 @@ func main() {
 	}
 
 	defer conn.Close()
+
+	_ = aof.Read(func(value internal.Value) {
+		command := strings.ToUpper(value.GetArray()[0].GetBulk())
+		args := value.GetArray()[1:]
+
+		handler, ok := internal.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			return
+		}
+
+		handler(args)
+	})
 
 	for {
 		resp := internal.NewResp(conn)
@@ -59,6 +81,10 @@ func main() {
 				fmt.Println(err)
 			}
 			continue
+		}
+
+		if command == "SET" || command == "HSET" {
+			_ = aof.Write(value)
 		}
 
 		result := handler(args)

@@ -180,6 +180,8 @@ func (v *Value) Marshal() []byte {
 		return v.marshallNull()
 	case STRING:
 		return v.marshallString()
+	case INTEGER:
+		return v.marshallInteger()
 	default:
 		return []byte{}
 	}
@@ -231,5 +233,13 @@ func (v *Value) marshallString() []byte {
 	bytes = append(bytes, v.bulk...)
 	bytes = append(bytes, '\r', '\n')
 
+	return bytes
+}
+
+func (v *Value) marshallInteger() []byte {
+	var bytes []byte
+	bytes = append(bytes, INTEGER...)
+	bytes = append(bytes, strconv.Itoa(v.num)...)
+	bytes = append(bytes, '\r', '\n')
 	return bytes
 }

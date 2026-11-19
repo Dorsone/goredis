@@ -13,6 +13,28 @@ var Handlers = map[string]func([]Value) Value{
 	"HSET":    hset,
 	"HGET":    hget,
 	"HGETALL": hgetall,
+	"DEL":     del,
+}
+
+func del(args []Value) Value {
+	if len(args) < 1 {
+		return Value{typ: ERROR, str: "ERR must be at least 1 argument"}
+	}
+
+	deletedElements := 0
+
+	for _, v := range args {
+		_, ok := SETs[v.bulk]
+
+		if ok {
+			SETsMu.Lock()
+			delete(SETs, v.bulk)
+			SETsMu.Unlock()
+			deletedElements += 1
+		}
+	}
+
+	return Value{typ: INTEGER, num: deletedElements}
 }
 
 func command(args []Value) Value {
